@@ -1414,18 +1414,18 @@ function postJsonThroughHttpProxy(endpoint, headers, body, proxyUrl, timeoutMs =
   });
 }
 
-async function callAiProvider(config, messages, temperature = config.temperature) {
+async function callAiProvider(config, messages, temperature = config.temperature, timeoutMs = 20000) {
   const payload = JSON.stringify(aiRequestPayload(config, messages, temperature));
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${config.apiKey}`,
   };
   if (config.proxyUrl) {
-    const { response, data } = await postJsonThroughHttpProxy(config.endpoint, headers, payload, config.proxyUrl);
+    const { response, data } = await postJsonThroughHttpProxy(config.endpoint, headers, payload, config.proxyUrl, timeoutMs);
     return { response, data, content: extractAiText(data), mode: aiEndpointMode(config.endpoint) };
   }
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const response = await fetch(config.endpoint, {
     method: "POST",
     headers,
@@ -1621,6 +1621,145 @@ async function validateAiProviderSetup(db = null) {
   }
 }
 
+function normalizeAiSingleSignalResult(result, fallbackClassification, fallbackText) {
+  if (!result || typeof result !== "object") return null;
+  const signal = result.signal && typeof result.signal === "object" ? result.signal : result;
+  const task = result.task && typeof result.task === "object" ? result.task : {};
+  const category = normalizeCategory(signal.category || task.category || fallbackClassification.category);
+  const risk = Math.max(1, Math.min(3, Number(signal.risk || task.risk || fallbackClassification.risk || 2)));
+  const confidence = Math.max(60, Math.min(98, Number(signal.confidence || task.confidence || fallbackClassification.confidence || 82)));
+  const severity = signal.severity || (risk === 3 ? "high" : risk === 2 ? "medium" : "low");
+  const title = String(task.title || result.title || "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const summary = String(task.summary || result.summary || fallbackText || "").replace(/\s+/g, " ").trim().slice(0, 800);
+  return {
+    classification: {
+      text: fallbackText,
+      category,
+      risk,
+      severity,
+      confidence,
+    },
+    task: {
+      title,
+      summary,
+      category,
+      risk,
+      confidence,
+      agent: String(task.agent || agentForCategory(category)).slice(0, 40),
+    },
+    reason: String(result.reason || result.rationale || "").replace(/\s+/g, " ").trim().slice(0, 500),
+  };
+}
+
+async function analyzeSingleSignalWithAiProvider(db, project, body, fallbackClassification) {
+  const config = aiProviderConfig(db);
+  if (!config.configured) return null;
+  const text = fallbackClassification.text || signalText(body);
+  if (!text || ["sdk_loaded", "connection_test"].includes(String(body.type || ""))) return null;
+
+  const prompt = {
+    project: {
+      id: project.id,
+      name: project.name,
+      url: project.url,
+      env: project.env,
+    },
+    signal: {
+      type: body.type || "feedback",
+      source: body.source || "",
+      page: body.page || body.url || "",
+      text,
+      data: body.data || {},
+      localFallback: fallbackClassification,
+    },
+    requiredJsonShape: {
+      signal: {
+        category: "bug | request | performance | support",
+        risk: "1 | 2 | 3",
+        severity: "low | medium | high",
+        confidence: "number 0-100",
+      },
+      task: {
+        title: "short actionable engineering title",
+        summary: "what should be changed and why",
+        category: "bug | request | performance | support",
+        risk: "1 | 2 | 3",
+        confidence: "number 0-100",
+        agent: "Product Agent | QA Agent | Code Agent | Support Agent",
+      },
+      reason: "brief explanation, no markdown",
+    },
+  };
+
+  try {
+    const { response, data, content, mode } = await callAiProvider(
+      config,
+      [
+        {
+          role: "system",
+          content:
+            "You are an AI product triage agent. Return JSON only. Classify one website feedback signal and create one actionable task. Keep the task concrete enough for a code agent. Do not invent unsupported facts.",
+        },
+        { role: "user", content: JSON.stringify(prompt) },
+      ],
+      Math.min(config.temperature, 0.2),
+      30000,
+    );
+    if (!response.ok) {
+      addLog(db, `AI feedback analysis failed: HTTP ${response.status}`);
+      return {
+        attempt: aiProviderAttempt(config, "failed", {
+          message: data?.error?.message || `AI provider returned HTTP ${response.status}`,
+          httpStatus: response.status,
+          fallback: "local_signal_rules",
+        }),
+      };
+    }
+    const parsed = parseAiJsonContent(content);
+    const normalized = normalizeAiSingleSignalResult(parsed, fallbackClassification, text);
+    if (!normalized) {
+      addLog(db, "AI feedback analysis returned invalid JSON; falling back to local rules.");
+      return {
+        attempt: aiProviderAttempt(config, "failed", {
+          message: "AI provider responded, but did not return a valid signal analysis JSON.",
+          httpStatus: response.status,
+          fallback: "local_signal_rules",
+        }),
+      };
+    }
+    const attempt = aiProviderAttempt(config, "used", {
+      message: "AI provider analyzed the incoming feedback and generated a task.",
+      httpStatus: response.status,
+    });
+    return { ...normalized, attempt, mode };
+  } catch (error) {
+    addLog(db, `AI feedback analysis failed: ${error.message}`);
+    return {
+      attempt: aiProviderAttempt(config, "failed", {
+        message: error.name === "AbortError" ? "AI provider request timed out after 20 seconds." : error.message,
+        fallback: "local_signal_rules",
+      }),
+    };
+  }
+}
+
+function taskFromAiSignal(signal, policy, aiTask, attempt) {
+  const title = String(aiTask?.title || "").trim();
+  const baseTask = taskFromSignal(signal, policy);
+  const task = {
+    ...baseTask,
+    title: title || baseTask.title,
+    summary: String(aiTask?.summary || signal.text || "").trim() || signal.text,
+    category: normalizeCategory(aiTask?.category || signal.category),
+    risk: Math.max(1, Math.min(3, Number(aiTask?.risk || signal.risk || 2))),
+    confidence: Math.max(60, Math.min(98, Number(aiTask?.confidence || signal.confidence || 82))),
+    agent: String(aiTask?.agent || agentForCategory(aiTask?.category || signal.category)),
+    generatedBy: "ai_provider",
+    aiProviderAttempt: attempt || null,
+  };
+  return task;
+}
+
 async function analyzeWithAiProvider(db, project, signals) {
   const config = aiProviderConfig(db);
   if (!config.configured) return null;
@@ -1672,7 +1811,7 @@ async function analyzeWithAiProvider(db, project, signals) {
   };
 
   try {
-    const { response, content } = await callAiProvider(config, [
+    const { response, data, content } = await callAiProvider(config, [
       {
         role: "system",
         content:
@@ -1683,13 +1822,49 @@ async function analyzeWithAiProvider(db, project, signals) {
         content: JSON.stringify(prompt),
       },
     ]);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      addLog(db, `AI analysis Agent call failed: HTTP ${response.status}`);
+      return {
+        ...analyzeWithHeuristics(project, signals),
+        model: "local-heuristic",
+        aiProviderAttempt: aiProviderAttempt(config, "failed", {
+          message: data?.error?.message || `AI provider returned HTTP ${response.status}`,
+          httpStatus: response.status,
+          fallback: "local_analysis_rules",
+        }),
+      };
+    }
     if (!content) return null;
     const parsed = parseAiJsonContent(content);
-    if (!parsed) return null;
-    return normalizeAnalysisResult(parsed, `${config.provider}:${config.model}`);
-  } catch {
-    return null;
+    if (!parsed) {
+      addLog(db, "AI analysis Agent returned invalid JSON; falling back to local analysis.");
+      return {
+        ...analyzeWithHeuristics(project, signals),
+        model: "local-heuristic",
+        aiProviderAttempt: aiProviderAttempt(config, "failed", {
+          message: "AI provider responded, but did not return valid analysis JSON.",
+          httpStatus: response.status,
+          fallback: "local_analysis_rules",
+        }),
+      };
+    }
+    const normalized = normalizeAnalysisResult(parsed, `${config.provider}:${config.model}`);
+    normalized.aiProviderAttempt = aiProviderAttempt(config, "used", {
+      message: "AI provider clustered feedback and suggested tasks.",
+      httpStatus: response.status,
+    });
+    addLog(db, `AI analysis Agent used ${config.model} for ${signals.length} signal(s).`);
+    return normalized;
+  } catch (error) {
+    addLog(db, `AI analysis Agent call failed: ${error.message}`);
+    return {
+      ...analyzeWithHeuristics(project, signals),
+      model: "local-heuristic",
+      aiProviderAttempt: aiProviderAttempt(config, "failed", {
+        message: error.name === "AbortError" ? "AI provider request timed out after 20 seconds." : error.message,
+        fallback: "local_analysis_rules",
+      }),
+    };
   }
 }
 
@@ -2579,6 +2754,7 @@ async function createAiEnhancedCodePlan(db, task, repository, basePlan) {
         { role: "user", content: JSON.stringify(prompt) },
       ],
       Math.min(config.temperature, 0.3),
+      60000,
     );
     if (!response.ok) {
       addLog(db, `AI Code Agent call failed: HTTP ${response.status}`);
@@ -2826,10 +3002,14 @@ async function createPatchProposal(db, draftId) {
   if (existing) {
     const expectedPatchPaths = patchFiles.map((file) => file.path);
     const existingPatchPaths = (existing.patchFiles || []).map((file) => file.path);
+    const nextAiAttempt = codePlan.repositoryAnalysis?.aiProviderAttempt || codePlan.aiProviderAttempt || null;
+    const previousAiAttempt = existing.codePlan?.repositoryAnalysis?.aiProviderAttempt || existing.codePlan?.aiProviderAttempt || null;
     const shouldRefreshExisting =
       !existing.codePlan ||
       codePlanNeedsRepositoryRefresh(existing.codePlan) ||
       (codePlan.repositoryAnalysis?.aiProviderAttempt && !existing.codePlan?.repositoryAnalysis?.aiProviderAttempt) ||
+      (nextAiAttempt?.status === "used" && previousAiAttempt?.status !== "used") ||
+      (nextAiAttempt?.status === "used" && existing.codePlan?.repositoryAnalysis?.generator !== codePlan.repositoryAnalysis?.generator) ||
       (canGeneratePatch && (!existing.patchFiles || !existing.patchFiles.length)) ||
       (canGeneratePatch &&
         (expectedPatchPaths.length !== existingPatchPaths.length ||
@@ -7468,6 +7648,7 @@ async function createAutopilotAnalysis(db, projectId) {
     summary: analysis.summary,
     clusters: analysis.clusters,
     suggestedTasks: analysis.suggestedTasks,
+    aiProviderAttempt: analysis.aiProviderAttempt || null,
     createdAt: nowIso(),
   };
   db.insights.unshift(insight);
@@ -7631,6 +7812,14 @@ async function runSelfEvolutionAutopilot(db, projectId, options = {}) {
     id: "analysis",
     status: "completed",
     detail: `完成信号聚类，新增 ${analysisResult.createdTasks.length} 个任务。`,
+  });
+
+  actions.push({
+    id: "analysis_model",
+    status: analysisResult.insight.aiProviderAttempt?.status === "used" ? "completed" : "warning",
+    detail: analysisResult.insight.aiProviderAttempt?.status === "used"
+      ? `AI model ${analysisResult.insight.aiProviderAttempt.model} analyzed feedback.`
+      : `AI analysis fell back to local rules: ${analysisResult.insight.aiProviderAttempt?.message || "no AI attempt recorded"}`,
   });
 
   const repositoryCountBefore = db.repositories.length;
@@ -8646,6 +8835,7 @@ async function handleApi(req, res, url) {
       summary: analysis.summary,
       clusters: analysis.clusters,
       suggestedTasks: analysis.suggestedTasks,
+      aiProviderAttempt: analysis.aiProviderAttempt || null,
       createdAt: nowIso(),
     };
     db.insights.unshift(insight);
@@ -9189,7 +9379,9 @@ async function handleApi(req, res, url) {
       return;
     }
 
-    const classification = classifySignal(body);
+    const localClassification = classifySignal(body);
+    const aiSignalAnalysis = await analyzeSingleSignalWithAiProvider(db, project, body, localClassification);
+    const classification = aiSignalAnalysis?.classification || localClassification;
     const signal = {
       id: `sig-${randomUUID().slice(0, 8)}`,
       projectId: body.projectId,
@@ -9206,15 +9398,29 @@ async function handleApi(req, res, url) {
       userId: body.userId || null,
       release: body.release || null,
       createdAt: body.createdAt || nowIso(),
-      data: body.data || {},
+      data: {
+        ...(body.data || {}),
+        aiAnalysis: aiSignalAnalysis?.classification
+          ? {
+              model: aiSignalAnalysis.attempt?.model || "",
+              reason: aiSignalAnalysis.reason || "",
+              status: aiSignalAnalysis.attempt?.status || "",
+              checkedAt: aiSignalAnalysis.attempt?.checkedAt || nowIso(),
+            }
+          : null,
+        aiProviderAttempt: aiSignalAnalysis?.attempt || null,
+      },
     };
 
     db.signals.push(signal);
     recordSignalAccept(project, validation.origin);
     let task = null;
     if (shouldCreateTaskForSignal(signal)) {
-      task = taskFromSignal(signal, policyForProject(db, signal.projectId));
+      task = aiSignalAnalysis?.task
+        ? taskFromAiSignal(signal, policyForProject(db, signal.projectId), aiSignalAnalysis.task, aiSignalAnalysis.attempt)
+        : taskFromSignal(signal, policyForProject(db, signal.projectId));
       db.tasks.unshift(task);
+      if (aiSignalAnalysis?.task) addLog(db, `AI feedback Agent used ${aiSignalAnalysis.attempt?.model || "model"} to generate task: ${task.title.slice(0, 48)}`);
       addLog(db, `Signals API 接收 ${signal.source}：${signal.text.slice(0, 28)}`);
       addLog(db, `产品 Agent 已生成任务：${task.title.slice(0, 34)}`);
     } else {
