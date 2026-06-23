@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>目标网站 Demo</title>
+    <style>
+      :root {
+        font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+        color: #17212b;
+        background: #eef1f4;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+      }
+
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 56px 22px;
+      }
+
+      .surface {
+        padding: 24px;
+        background: #ffffff;
+        border: 1px solid #dbe2ea;
+        border-radius: 8px;
+        box-shadow: 0 18px 40px rgba(31, 41, 55, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 34px;
+      }
+
+      p {
+        color: #677586;
+        line-height: 1.65;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      button,
+      a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: 8px;
+        border: 1px solid #174fab;
+        color: #ffffff;
+        background: #1d5fd1;
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      button.secondary,
+      a.secondary {
+        color: #17212b;
+        background: #f7f9fb;
+        border-color: #dbe2ea;
+      }
+
+      code {
+        padding: 2px 6px;
+        background: #f3f6f9;
+        border: 1px solid #dbe2ea;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="surface">
+        <h1>A 网站 Demo</h1>
+        <p>
+          这是一个模拟的客户网站。右下角的反馈浮窗来自 <code>widget.js</code>。
+          提交反馈后，平台 API 会把它归类成信号，并自动生成迭代任务。
+        </p>
+        <div class="actions">
+          <button id="sendBug">模拟按钮报错</button>
+          <button class="secondary" id="sendPerformance">模拟性能问题</button>
+          <button class="secondary" id="sendApiFailure">模拟接口失败</button>
+          <a class="secondary" href="./index.html">回到控制台</a>
+        </div>
+      </section>
+    </main>
+
+    <script src="./widget.js" data-key="sdk-a-site-local" data-project-id="a-site" data-project-name="A 网站增长平台"></script>
+    <script>
+      document.getElementById("sendBug").addEventListener("click", function () {
+        SelfIteratingAI.track("client_error", {
+          message: "移动端结账按钮点击后没有反应，疑似事件被遮罩层拦截。"
+        });
+      });
+
+      document.getElementById("sendPerformance").addEventListener("click", function () {
+        SelfIteratingAI.track("performance", {
+          text: "商品详情页首屏加载超过 2 秒，影响转化漏斗。",
+          loadTime: 2140
+        });
+      });
+
+      document.getElementById("sendApiFailure").addEventListener("click", function () {
+        fetch("/api/mock-failed-payment").catch(function () {});
+      });
+    </script>
+  </body>
+</html>

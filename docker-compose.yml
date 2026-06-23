@@ -1,0 +1,36 @@
+services:
+  itera-ai:
+    build: .
+    image: itera-ai-self-iteration-platform:local
+    env_file:
+      - .env.production
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8787
+      STORAGE_DRIVER: sqlite
+      SQLITE_FILE: /app/data/itera.sqlite
+      SANDBOX_PROVIDER: external-http-provider
+      SANDBOX_PROVIDER_URL: http://sandbox-provider:8794/run
+      SANDBOX_PROVIDER_TOKEN: ${SANDBOX_PROVIDER_TOKEN:-change-me-before-production}
+    ports:
+      - "8787:8787"
+    volumes:
+      - itera-data:/app/data
+    depends_on:
+      - sandbox-provider
+    restart: unless-stopped
+
+  sandbox-provider:
+    build: .
+    image: itera-ai-self-iteration-platform:local
+    command: ["node", "sandbox-provider.js"]
+    environment:
+      SANDBOX_PROVIDER_HOST: 0.0.0.0
+      SANDBOX_PROVIDER_PORT: 8794
+      SANDBOX_PROVIDER_TOKEN: ${SANDBOX_PROVIDER_TOKEN:-change-me-before-production}
+      SANDBOX_PROVIDER_RUNTIME: local-process
+      SANDBOX_PROVIDER_STRICT_CLONE: "false"
+    restart: unless-stopped
+
+volumes:
+  itera-data:

@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Itera AI 自迭代平台</title>
+    <link rel="stylesheet" href="styles.css?v=20260623-local-shop-fix-1" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div>
+            <strong>Itera AI</strong>
+            <small>自迭代中枢</small>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="主导航">
+          <button class="nav-item is-active" data-view="overview">
+            <span class="nav-glyph" aria-hidden="true">◎</span>
+            <span class="nav-copy"><strong>工作台</strong><small>看今天进化到哪了</small></span>
+          </button>
+          <button class="nav-item" data-view="feedback">
+            <span class="nav-glyph" aria-hidden="true">◇</span>
+            <span class="nav-copy"><strong>用户反馈</strong><small>收集问题和建议</small></span>
+          </button>
+          <button class="nav-item" data-view="iterations">
+            <span class="nav-glyph" aria-hidden="true">⌁</span>
+            <span class="nav-copy"><strong>批准进化</strong><small>确认要改的问题</small></span>
+          </button>
+          <button class="nav-item" data-view="integrations">
+            <span class="nav-glyph" aria-hidden="true">⌘</span>
+            <span class="nav-copy"><strong>接入网站</strong><small>生成一行代码</small></span>
+          </button>
+          <button class="nav-item" data-view="agents">
+            <span class="nav-glyph" aria-hidden="true">▣</span>
+            <span class="nav-copy"><strong>进化记录</strong><small>查看每次运行</small></span>
+          </button>
+          <button class="nav-item" data-view="policy">
+            <span class="nav-glyph" aria-hidden="true">◫</span>
+            <span class="nav-copy"><strong>自动化规则</strong><small>设置哪些能自动改</small></span>
+          </button>
+          <button class="nav-item" data-view="production">
+            <span class="nav-glyph" aria-hidden="true">■</span>
+            <span class="nav-copy"><strong>设置</strong><small>模型、发布和计费</small></span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span>当前模式</span>
+          <strong id="sidebarMode">协同审批</strong>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="project-block">
+            <label for="projectSelect">项目</label>
+            <select id="projectSelect"></select>
+            <div class="project-meta">
+              <span id="projectUrl"></span>
+              <span id="projectEnv"></span>
+            </div>
+          </div>
+
+          <div class="topbar-actions">
+            <div class="segmented" role="group" aria-label="自迭代模式">
+              <button data-mode="observe">观察</button>
+              <button data-mode="assist" class="is-active">协同</button>
+              <button data-mode="auto">自动</button>
+            </div>
+            <button class="icon-action" id="runInspectionBtn" title="检查网站" aria-label="检查网站">
+              <span aria-hidden="true">▶</span>
+            </button>
+            <button class="primary-action" id="exportSnapshotBtn">导出记录</button>
+            <a class="ghost-button docs-link" href="/docs" target="_blank" rel="noreferrer">接入文档</a>
+            <div class="account-menu" id="accountMenu"></div>
+          </div>
+        </header>
+
+        <div class="activity-banner" id="activityBanner"></div>
+
+        <section class="view is-active" data-panel="overview">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Today</p>
+              <h1>网站自进化工作台</h1>
+            </div>
+            <div class="health-pill" id="healthPill">稳定</div>
+          </div>
+
+          <div class="metric-grid" id="metricGrid"></div>
+
+          <div class="simple-path" aria-label="主要使用流程">
+            <button type="button" data-jump="integrations"><b>1</b><span>接入网站</span></button>
+            <button type="button" data-jump="feedback"><b>2</b><span>收集反馈</span></button>
+            <button type="button" data-jump="iterations"><b>3</b><span>确认进化</span></button>
+            <button type="button" data-jump="agents"><b>4</b><span>查看结果</span></button>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel span-7">
+              <div class="panel-heading">
+                <h2>今天要做什么</h2>
+                <button class="ghost-button" id="planFromFeedbackBtn">自动整理反馈</button>
+              </div>
+              <div class="loop-map" id="loopMap" aria-label="进化链路状态"></div>
+            </section>
+
+            <section class="panel span-5">
+              <div class="panel-heading">
+                <h2>AI 分工</h2>
+                <span class="quiet" id="agentCount"></span>
+              </div>
+              <div class="topology" id="topology"></div>
+            </section>
+
+            <section class="panel span-7">
+              <div class="panel-heading">
+                <h2>AI 发现的问题</h2>
+                <span class="quiet" id="insightMeta">等待分析</span>
+              </div>
+              <div class="insight-stack" id="insightPanel"></div>
+            </section>
+
+            <section class="panel span-5">
+              <div class="panel-heading">
+                <h2>当前接入状态</h2>
+                <span class="quiet" id="capabilityRadarMeta">待检查</span>
+              </div>
+              <div class="capability-radar" id="capabilityRadar"></div>
+            </section>
+
+            <section class="panel span-4">
+              <div class="panel-heading">
+                <h2>最新反馈</h2>
+                <button class="ghost-button compact" data-jump="feedback">查看</button>
+              </div>
+              <div class="signal-list" id="signalList"></div>
+            </section>
+
+            <section class="panel span-4">
+              <div class="panel-heading">
+                <h2>等待批准</h2>
+                <button class="ghost-button compact" data-jump="iterations">去处理</button>
+              </div>
+              <div class="mini-queue" id="overviewQueue"></div>
+            </section>
+
+            <section class="panel span-4">
+              <div class="panel-heading">
+                <h2>上线保护</h2>
+                <button class="ghost-button compact" id="promoteCanaryBtn">查看</button>
+              </div>
+              <div class="guardrail" id="releaseGuard"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-panel="feedback">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Feedback</p>
+              <h1>用户反馈</h1>
+            </div>
+            <div class="filter-tabs" id="feedbackFilters">
+              <button class="is-active" data-filter="all">全部</button>
+              <button data-filter="bug">Bug</button>
+              <button data-filter="request">需求</button>
+              <button data-filter="performance">性能</button>
+              <button data-filter="support">客服</button>
+            </div>
+          </div>
+
+          <div class="two-column">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>手动添加一条反馈</h2>
+                <span class="quiet">也可以来自客户网站浮窗</span>
+              </div>
+              <form class="feedback-form" id="feedbackForm">
+                <label>
+                  来源
+                  <select id="feedbackSource">
+                    <option value="用户反馈">用户反馈</option>
+                    <option value="客服对话">客服对话</option>
+                    <option value="前端错误">前端错误</option>
+                    <option value="AI 巡检">AI 巡检</option>
+                  </select>
+                </label>
+                <label>
+                  内容
+                  <textarea id="feedbackText" rows="7" placeholder="例如：移动端付款按钮点了没有反应，用户已经尝试三次。"></textarea>
+                </label>
+                <button class="primary-action full-width" type="submit" id="submitFeedbackBtn">提交反馈</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>信号列表</h2>
+                <div class="inline-actions">
+                  <button class="ghost-button compact" id="importSupportBtn">导入客服</button>
+                  <button class="ghost-button compact" id="clusterFeedbackBtn">整理成任务</button>
+                </div>
+              </div>
+              <div class="feedback-list" id="feedbackList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-panel="iterations">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Approve</p>
+              <h1>批准网站进化</h1>
+            </div>
+            <button class="primary-action" id="approveSafeBtn">批准并开始进化</button>
+          </div>
+
+          <section class="panel evolution-run-panel">
+            <div class="panel-heading">
+              <h2>这次改到哪一步了</h2>
+              <span class="quiet" id="evolutionRunMeta">等待运行</span>
+            </div>
+            <div class="evolution-run" id="evolutionRunPanel"></div>
+          </section>
+
+          <section class="panel table-panel">
+            <div class="iteration-table" id="iterationTable"></div>
+          </section>
+        </section>
+
+        <section class="view" data-panel="agents">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">History</p>
+              <h1>进化记录</h1>
+            </div>
+            <div class="run-actions">
+              <select id="runType">
+                <option value="full">完整检查</option>
+                <option value="qa">可用性检查</option>
+                <option value="product">反馈整理</option>
+                <option value="release">发布后检查</option>
+              </select>
+              <button class="primary-action" id="startRunBtn">开始检查</button>
+            </div>
+          </div>
+
+          <div class="runtime-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>运行步骤</h2>
+                <span class="quiet" id="runState">空闲</span>
+              </div>
+              <div class="pipeline" id="pipelineSteps"></div>
+            </section>
+            <section class="panel console-panel">
+              <div class="panel-heading">
+                <h2>详细记录</h2>
+                <button class="ghost-button compact" id="clearLogBtn">清空</button>
+              </div>
+              <pre id="agentLog"></pre>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-panel="integrations">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Connect</p>
+              <h1>接入一个网站</h1>
+            </div>
+            <button class="primary-action" id="copySdkBtn">复制接入代码</button>
+          </div>
+
+          <div class="integration-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>填写网站信息</h2>
+                <span class="quiet" id="projectAccessMeta">生成专属接入代码</span>
+              </div>
+              <div class="onboarding-steps" aria-label="接入步骤">
+                <span><b>1</b> 填信息</span>
+                <span><b>2</b> 生成 Key</span>
+                <span><b>3</b> 复制代码</span>
+              </div>
+              <div class="first-run-guide" id="firstRunGuide"></div>
+              <form class="project-form quick-onboarding-form" id="projectForm">
+                <label>
+                  产品名称
+                  <input id="newProjectName" autocomplete="off" placeholder="例如：客户官网" required />
+                </label>
+                <label>
+                  网站网址
+                  <input id="newProjectUrl" autocomplete="off" inputmode="url" placeholder="https://customer.example.com" required />
+                </label>
+                <button class="primary-action" type="submit">生成 API Key</button>
+              </form>
+              <div class="project-access" id="projectAccessPanel"></div>
+              <div class="readiness-panel" id="readinessPanel"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>已接入的网站</h2>
+                <span class="quiet">统一管理</span>
+              </div>
+              <div class="connector-list" id="connectorList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>一行接入代码</h2>
+                <span class="quiet">粘贴到客户网站</span>
+              </div>
+              <pre class="code-block embed-code" id="sdkSnippet"></pre>
+            </section>
+
+            <details class="admin-details integration-admin-details">
+              <summary>管理员高级设置</summary>
+              <div class="admin-details-body">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>网站代码连接</h2>
+                <button class="ghost-button compact" id="connectRepoBtn">连接测试站</button>
+              </div>
+              <div class="connector-list" id="repoList"></div>
+            </section>
+              </div>
+            </details>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>待发布改动</h2>
+                <span class="quiet" id="prDraftMeta">等待生成</span>
+              </div>
+              <div class="connector-list" id="prDraftList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>改动预览</h2>
+                <span class="quiet" id="patchProposalMeta">等待生成</span>
+              </div>
+              <div class="patch-preview" id="patchProposalPanel"></div>
+            </section>
+
+            <section class="panel wide-panel">
+              <div class="panel-heading">
+                <h2>发布进度</h2>
+                <span class="quiet" id="productionOpsMeta">等待改动</span>
+              </div>
+              <div class="production-ops" id="productionOpsPanel"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-panel="policy">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Rules</p>
+              <h1>自动化规则</h1>
+            </div>
+            <button class="primary-action" id="savePolicyBtn">保存规则</button>
+          </div>
+
+          <div class="policy-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>哪些事情可以自动做</h2>
+                <span class="quiet">按风险控制</span>
+              </div>
+              <div class="policy-stack">
+                <label class="toggle-row">
+                  <span>
+                    <strong>允许自动生成改动</strong>
+                    <small>低风险问题不用人工起草</small>
+                  </span>
+                  <input type="checkbox" id="policyPr" checked />
+                </label>
+                <label class="toggle-row">
+                  <span>
+                    <strong>允许自动小范围发布</strong>
+                    <small>仅限测试通过且错误率稳定</small>
+                  </span>
+                  <input type="checkbox" id="policyCanary" checked />
+                </label>
+                <label class="range-row">
+                  <span>
+                    <strong>自动处理最高风险</strong>
+                    <small id="riskLimitLabel">低风险</small>
+                  </span>
+                  <input type="range" id="riskLimit" min="1" max="3" value="1" />
+                </label>
+                <label class="range-row">
+                  <span>
+                    <strong>最低置信度</strong>
+                    <small id="confidenceLabel">82%</small>
+                  </span>
+                  <input type="range" id="confidenceLimit" min="60" max="98" value="82" />
+                </label>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>什么时候需要人工确认</h2>
+                <span class="quiet">默认规则</span>
+              </div>
+              <div class="approval-matrix" id="approvalMatrix"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-panel="production">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Settings</p>
+              <h1>平台设置</h1>
+            </div>
+            <button class="primary-action" id="refreshProductionBtn">刷新状态</button>
+          </div>
+
+          <div class="production-readiness" id="productionReadinessSummary"></div>
+
+          <section class="panel production-domain-panel">
+            <div class="panel-heading">
+              <h2>平台访问地址</h2>
+              <span class="quiet">客户网站和外部服务访问这里</span>
+            </div>
+            <form class="deploy-form" id="deploymentConfigForm">
+              <label>
+                平台公开网址
+                <input id="publicBaseUrlInput" inputmode="url" placeholder="https://your-platform.example.com" />
+              </label>
+              <button class="primary-action" type="submit">保存地址</button>
+            </form>
+            <div class="deploy-url-grid" id="deploymentUrlGrid"></div>
+          </section>
+
+          <section class="panel github-setup-panel" id="aiProviderSetupPanel"></section>
+
+          <details class="admin-details production-admin-details">
+            <summary>管理员高级设置</summary>
+            <div class="admin-details-body">
+          <section class="panel github-setup-panel" id="githubSetupPanel"></section>
+
+          <section class="panel sandbox-setup-panel" id="sandboxSetupPanel"></section>
+
+          <section class="panel billing-setup-panel" id="billingSetupPanel"></section>
+
+          <div class="production-check-grid" id="productionReadinessGrid"></div>
+
+          <div class="two-column">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>还缺什么</h2>
+                <span class="quiet">做好后才适合给真实客户用</span>
+              </div>
+              <div class="blocker-list" id="productionBlockers"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>高级配置备份</h2>
+                <button class="ghost-button compact" id="copyProductionEnvBtn">复制模板</button>
+              </div>
+              <div class="env-checklist" id="productionEnvChecklist"></div>
+            </section>
+          </div>
+            </div>
+          </details>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="modal-backdrop" id="authModal" hidden>
+      <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <div class="auth-head">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h2 id="authTitle">登录账号</h2>
+          </div>
+          <button class="icon-action" type="button" id="authCloseBtn" aria-label="关闭">×</button>
+        </div>
+        <div class="filter-tabs auth-tabs" id="authModeTabs">
+          <button class="is-active" type="button" data-auth-mode="login">登录</button>
+          <button type="button" data-auth-mode="register">注册</button>
+        </div>
+        <form class="auth-form" id="authForm" data-mode="login">
+          <label>
+            邮箱
+            <input id="authEmail" type="email" autocomplete="email" placeholder="owner@example.com" required />
+          </label>
+          <label>
+            密码
+            <input id="authPassword" type="password" autocomplete="current-password" placeholder="至少 8 位" required />
+          </label>
+          <label class="auth-register-only">
+            姓名
+            <input id="authName" autocomplete="name" placeholder="你的名字" />
+          </label>
+          <label class="auth-register-only">
+            组织名称
+            <input id="authOrganization" autocomplete="organization" placeholder="公司或产品团队名称" />
+          </label>
+          <div class="auth-actions">
+            <button class="ghost-button" type="button" id="authCancelBtn">取消</button>
+            <button class="primary-action" type="submit" id="authSubmitBtn">登录</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="app.js?v=20260623-ai-proxy-1"></script>
+  </body>
+</html>

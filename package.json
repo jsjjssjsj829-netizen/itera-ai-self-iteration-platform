@@ -1,0 +1,19 @@
+{
+  "name": "itera-ai-self-iteration-platform",
+  "version": "0.2.0",
+  "private": true,
+  "description": "A local full-stack MVP for an AI website self-iteration platform.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "sandbox:provider": "node sandbox-provider.js",
+    "db:migrate": "node scripts/db-migrate.js",
+    "check": "node --check server.js && node --check sandbox-provider.js && node --check app.js && node --check sdk/iteration-client.js && node --check scripts/smoke-test.js && node --check scripts/db-migrate.js && node --check scripts/real-config-check.js && node --check scripts/standalone-check.js",
+    "standalone:check": "node scripts/standalone-check.js",
+    "config:check": "node scripts/real-config-check.js",
+    "smoke": "node scripts/smoke-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

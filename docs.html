@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Itera AI 接入文档</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        background: #f3f6f8;
+      }
+
+      .docs-shell {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 24px 22px 64px;
+      }
+
+      .docs-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 18px;
+        align-items: end;
+        padding: 24px 0 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .docs-header h1 {
+        margin: 0 0 8px;
+        font-size: 34px;
+      }
+
+      .docs-header p {
+        max-width: 720px;
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .docs-layout {
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr);
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .docs-nav {
+        position: sticky;
+        top: 18px;
+        align-self: start;
+        display: grid;
+        gap: 6px;
+        padding: 12px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+
+      .docs-nav a {
+        padding: 9px 10px;
+        color: var(--ink);
+        text-decoration: none;
+        border-radius: 6px;
+      }
+
+      .docs-nav a:hover {
+        background: var(--surface-2);
+      }
+
+      .docs-content {
+        display: grid;
+        gap: 14px;
+      }
+
+      .docs-section {
+        padding: 18px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+
+      .docs-section h2 {
+        margin-bottom: 12px;
+        font-size: 22px;
+      }
+
+      .docs-section p,
+      .docs-section li {
+        color: #334155;
+        line-height: 1.75;
+      }
+
+      .docs-section ul,
+      .docs-section ol {
+        margin: 10px 0 0;
+        padding-left: 22px;
+      }
+
+      .step-grid,
+      .check-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .doc-step,
+      .doc-check {
+        min-height: 120px;
+        padding: 14px;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+
+      .doc-step b,
+      .doc-check b {
+        display: inline-grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 10px;
+        color: #ffffff;
+        background: var(--blue);
+        border-radius: 6px;
+      }
+
+      .code-panel {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .code-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .code-toolbar span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .docs-code {
+        display: block;
+        min-height: 52px;
+        margin: 0;
+        padding: 13px;
+        overflow-x: auto;
+        color: #eaf2ff;
+        background: #121923;
+        border-radius: var(--radius);
+        line-height: 1.6;
+      }
+
+      .public-link {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+        padding: 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+
+      .public-link code {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .field-table {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field-row {
+        display: grid;
+        grid-template-columns: 170px 1fr;
+        gap: 10px;
+        padding: 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+
+      .field-row code {
+        color: var(--blue);
+        font-weight: 700;
+      }
+
+      @media (max-width: 860px) {
+        .docs-header,
+        .docs-layout,
+        .step-grid,
+        .check-grid,
+        .field-row {
+          grid-template-columns: 1fr;
+        }
+
+        .docs-nav {
+          position: static;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="docs-shell">
+      <header class="docs-header">
+        <div>
+          <p class="eyebrow">Public Integration Guide</p>
+          <h1>Itera AI 网站自进化接入文档</h1>
+          <p>客户只需要在平台创建项目，复制一行嵌入代码到自己的网站，就可以把用户反馈、前端错误、性能信号和行为异常接入自进化平台。</p>
+        </div>
+        <a class="primary-action" href="/">返回控制台</a>
+      </header>
+
+      <div class="docs-layout">
+        <nav class="docs-nav" aria-label="接入文档导航">
+          <a href="#public-link">公开链接</a>
+          <a href="#quick-start">3 步接入</a>
+          <a href="#embed">嵌入代码</a>
+          <a href="#verify">验证接入</a>
+          <a href="#signals">Signals API</a>
+          <a href="#webhook">输出 Webhook</a>
+          <a href="#faq">常见问题</a>
+        </nav>
+
+        <div class="docs-content">
+          <section class="docs-section" id="public-link">
+            <h2>公开文档链接</h2>
+            <p>这就是可以发给客户的公开接入文档地址。生产环境上线后，域名会自动变成你的公网域名。</p>
+            <div class="public-link">
+              <code id="publicDocsUrl">http://127.0.0.1:8787/docs</code>
+              <button class="row-action secondary" type="button" data-copy-target="publicDocsUrl">复制</button>
+            </div>
+          </section>
+
+          <section class="docs-section" id="quick-start">
+            <h2>3 步完成接入</h2>
+            <div class="step-grid">
+              <div class="doc-step">
+                <b>1</b>
+                <strong>填写产品信息</strong>
+                <p>在控制台填写产品名称和网站网址。平台会自动规范化网址并生成允许来源。</p>
+              </div>
+              <div class="doc-step">
+                <b>2</b>
+                <strong>生成 API Key</strong>
+                <p>提交后系统会为该网站生成独立 API Key，并绑定到当前项目。</p>
+              </div>
+              <div class="doc-step">
+                <b>3</b>
+                <strong>复制嵌入代码</strong>
+                <p>把一行脚本粘贴到客户网站的 HTML 中，建议放在 `</body>` 前或全站模板中。</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="docs-section" id="embed">
+            <h2>嵌入代码</h2>
+            <p>控制台会自动把客户自己的 API Key 填进去。下面是格式示例：</p>
+            <div class="code-panel">
+              <div class="code-toolbar">
+                <span>HTML</span>
+                <button class="row-action secondary" type="button" data-copy-target="embedSnippet">复制代码</button>
+              </div>
+              <pre class="docs-code"><code id="embedSnippet">&lt;script src="http://127.0.0.1:8787/widget.js" data-key="sdk-your-project-key" defer&gt;&lt;/script&gt;</code></pre>
+            </div>
+            <p>接入后，SDK 会自动发送一次 `sdk_loaded` 心跳，用来确认脚本已成功加载。</p>
+          </section>
+
+          <section class="docs-section" id="verify">
+            <h2>验证接入是否成功</h2>
+            <div class="check-grid">
+              <div class="doc-check">
+                <b>1</b>
+                <strong>刷新客户网站</strong>
+                <p>打开已粘贴脚本的网站页面，让 SDK 自动上报首次心跳。</p>
+              </div>
+              <div class="doc-check">
+                <b>2</b>
+                <strong>回到控制台</strong>
+                <p>项目接入面板里会显示最近成功来源、通过信号数和拦截信号数。</p>
+              </div>
+              <div class="doc-check">
+                <b>3</b>
+                <strong>发送测试信号</strong>
+                <p>点击控制台里的“发送测试信号”，确认 API Key、域名来源和 Signals API 都正常。</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="docs-section" id="signals">
+            <h2>Signals API</h2>
+            <p>如果客户不想使用页面浮窗，也可以由自己的前端、后端或客服系统直接调用 Signals API。</p>
+            <div class="code-panel">
+              <div class="code-toolbar">
+                <span>POST /api/signals</span>
+                <button class="row-action secondary" type="button" data-copy-target="signalsCurl">复制 curl</button>
+              </div>
+              <pre class="docs-code"><code id="signalsCurl">curl -X POST http://127.0.0.1:8787/api/signals \
+  -H "Content-Type: application/json" \
+  -H "X-Itera-SDK-Key: sdk-your-project-key" \
+  -d '{"type":"feedback","source":"用户反馈","page":"https://customer.example.com/checkout","data":{"text":"支付按钮点击后没有反应"}}'</code></pre>
+            </div>
+            <div class="field-table">
+              <div class="field-row"><code>type</code><span>信号类型，例如 `feedback`、`client_error`、`performance`、`api_failure`。</span></div>
+              <div class="field-row"><code>source</code><span>信号来源，例如“用户反馈”“客服工单”“前端错误”“AI 巡检”。</span></div>
+              <div class="field-row"><code>page</code><span>信号发生页面，用于校验来源和定位问题。</span></div>
+              <div class="field-row"><code>data.text</code><span>用户原始反馈或系统错误摘要，平台会自动分类并生成迭代任务。</span></div>
+            </div>
+          </section>
+
+          <section class="docs-section" id="webhook">
+            <h2>输出 Webhook</h2>
+            <p>客户如果希望把 PR、发布计划、灰度推进和回滚结果同步回自己的系统，可以在控制台配置输出 Webhook。</p>
+            <ul>
+              <li>平台会发送 `webhook.test`、`pr.opened`、`release.planned`、`release.promoted`、`release.rolled_back` 等事件。</li>
+              <li>每次请求都会带 `X-Itera-Event`、`X-Itera-Delivery`、`X-Itera-Signature-256`。</li>
+              <li>签名使用项目 API Key 对请求体做 HMAC-SHA256，客户后端可以用它验证来源。</li>
+            </ul>
+          </section>
+
+          <section class="docs-section" id="faq">
+            <h2>常见问题</h2>
+            <div class="field-table">
+              <div class="field-row"><code>看不到信号</code><span>确认脚本已粘贴到客户网站、API Key 正确、客户网站域名和项目网址一致。</span></div>
+              <div class="field-row"><code>403 拒绝</code><span>通常是 SDK Key 错误或浏览器来源不在允许域名内。重新生成接入代码后再粘贴。</span></div>
+              <div class="field-row"><code>429 限流</code><span>单项目默认每分钟最多接收 120 条信号，可通过 `SIGNAL_RATE_LIMIT_PER_MINUTE` 调整。</span></div>
+              <div class="field-row"><code>公网访问</code><span>本地 `127.0.0.1` 只能自己电脑访问。正式给客户使用时需要部署到公网 HTTPS 域名。</span></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const baseUrl = window.location.origin;
+      const docsUrl = `${baseUrl}/docs`;
+      document.getElementById("publicDocsUrl").textContent = docsUrl;
+      document.getElementById("embedSnippet").textContent = `<script src="${baseUrl}/widget.js" data-key="sdk-your-project-key" defer><\/script>`;
+      document.getElementById("signalsCurl").textContent = `curl -X POST ${baseUrl}/api/signals \\
+  -H "Content-Type: application/json" \\
+  -H "X-Itera-SDK-Key: sdk-your-project-key" \\
+  -d '{"type":"feedback","source":"用户反馈","page":"https://customer.example.com/checkout","data":{"text":"支付按钮点击后没有反应"}}'`;
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("is-visible");
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(() => toast.classList.remove("is-visible"), 1800);
+      }
+
+      document.querySelectorAll("[data-copy-target]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const target = document.getElementById(button.dataset.copyTarget);
+          const text = target.textContent.trim();
+          await navigator.clipboard.writeText(text);
+          showToast("已复制");
+        });
+      });
+    </script>
+  </body>
+</html>
