@@ -5300,8 +5300,8 @@ async function githubRequest(repo, method, route, body) {
   });
 }
 
-async function validateGithubRepository(owner, name) {
-  const status = githubIntegrationStatus();
+async function validateGithubRepository(db, projectId, owner, name) {
+  const status = githubIntegrationStatus(db, projectId);
   if (!status.canOpenRealPr) {
     return {
       ok: false,
@@ -5311,7 +5311,14 @@ async function validateGithubRepository(owner, name) {
       installUrl: status.installUrl,
     };
   }
-  const repo = { owner, name };
+  const connectedRepo = db.repositories.find((item) => item.projectId === projectId && item.owner === owner && item.name === name);
+  const installationRepo = githubInstallationForProject(db, projectId)?.repositories?.find((item) => item.owner === owner && item.name === name);
+  const repo = {
+    projectId,
+    owner,
+    name,
+    githubInstallationId: connectedRepo?.githubInstallationId || installationRepo?.installationId || status.projectInstallation?.installationId,
+  };
   const auth = await githubAuthForRepo(repo);
   const data = await githubApiRequest("GET", `https://api.github.com/repos/${owner}/${name}`, null, { authToken: auth.token });
   return {
@@ -8652,8 +8659,8 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/github/repositories/validate") {
     const body = await parseBody(req);
     try {
-      const result = await validateGithubRepository(body.owner, body.name);
       const project = resolveProjectForActor(db, actor, body.projectId);
+      const result = await validateGithubRepository(db, project.id, body.owner, body.name);
       json(res, 200, { validation: result, github: githubIntegrationStatus(db, project.id) });
     } catch (error) {
       badRequest(res, error.message);
