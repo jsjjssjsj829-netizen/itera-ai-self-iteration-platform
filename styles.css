@@ -1087,6 +1087,47 @@ h3 {
   gap: 8px;
 }
 
+.access-checklist {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.access-checklist-heading,
+.access-check-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.access-checklist-heading {
+  grid-template-columns: minmax(0, 1fr);
+  padding-bottom: 4px;
+}
+
+.access-checklist-heading small,
+.access-check-row small {
+  color: var(--muted);
+}
+
+.access-check-row {
+  min-width: 0;
+  padding: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.access-check-row div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
 .access-stat {
   min-width: 0;
   padding: 10px;
@@ -2691,6 +2732,7 @@ input[type="range"] {
   .policy-grid,
   .project-form,
   .project-access-grid,
+  .access-check-row,
   .production-grid,
   .production-check-grid,
   .code-plan-grid,

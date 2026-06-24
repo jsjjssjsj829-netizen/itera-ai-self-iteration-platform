@@ -1899,6 +1899,13 @@
     const repos = projectRepositories();
     const connectedRepo = repos[0] || null;
     const authorizedRepos = projectAuthorizedGithubRepositories();
+    const acceptedSignals = Number(ingestion.acceptedSignals || feedbackCount || 0);
+    const rejectedSignals = Number(ingestion.rejectedSignals || 0);
+    const lastAcceptedOrigin = ingestion.lastAcceptedOrigin || "";
+    const lastRejectedOrigin = ingestion.lastRejectedOrigin || "";
+    const lastRejectedReason = ingestion.lastRejectedReason || "";
+    const originMismatch = lastRejectedReason === "Origin is not allowed" && lastRejectedOrigin && !origins.includes(lastRejectedOrigin);
+    const sdkSeen = acceptedSignals > 0 || Boolean(ingestion.lastSignalAt);
     const githubHint = connectedRepo
       ? `已连接 ${connectedRepo.owner}/${connectedRepo.name}，可以生成真实 PR。下一步去批准要进化的问题。`
       : authorizedRepos.length
@@ -1911,6 +1918,54 @@
       : authorizedRepos.length
         ? `<button class="row-action" type="button" data-github-connect-index="0">连接这个仓库</button>`
         : `<button class="row-action" type="button" data-github-load-repos>刷新我的 GitHub 仓库</button>`;
+    const accessChecks = [
+      {
+        label: "1. 接入代码",
+        status: sdkActive ? "passed" : "missing",
+        detail: sdkActive ? "已生成专属 API Key，可以复制给客户网站使用。" : "还没有可用 API Key，先生成接入代码。",
+      },
+      {
+        label: "2. 客户网站是否真的粘贴",
+        status: sdkSeen ? "passed" : "waiting",
+        detail: sdkSeen
+          ? `已收到客户网站信号${lastAcceptedOrigin ? `，最近来源：${lastAcceptedOrigin}` : ""}。`
+          : "客户粘贴代码并刷新网站后，这里会自动变成已接入。",
+      },
+      {
+        label: "3. 来源域名是否匹配",
+        status: originMismatch ? "blocked" : origins.length ? "passed" : "missing",
+        detail: originMismatch
+          ? `检测到 ${lastRejectedOrigin}，但它不在允许来源里。`
+          : origins.length
+            ? `已允许 ${origins.length} 个网站来源。`
+            : "还没有配置客户网站来源。",
+        action: originMismatch ? `<button class="row-action" type="button" data-add-allowed-origin="${escapeHtml(lastRejectedOrigin)}">一键放行这个来源</button>` : "",
+      },
+      {
+        label: "4. 代码仓库",
+        status: connectedRepo ? "passed" : authorizedRepos.length ? "warning" : "missing",
+        detail: connectedRepo
+          ? `已绑定 ${connectedRepo.owner}/${connectedRepo.name}，可以创建真实 PR。`
+          : authorizedRepos.length
+            ? "GitHub 已授权，等待绑定到当前项目。"
+            : "还没有绑定客户网站的 GitHub 仓库。",
+        action: connectedRepo
+          ? ""
+          : authorizedRepos.length
+            ? `<button class="row-action" type="button" data-github-connect-index="0">连接这个仓库</button>`
+            : `<button class="row-action" type="button" data-github-load-repos>同步授权仓库</button>`,
+      },
+      {
+        label: "5. 进化完成后怎么发布",
+        status: deploymentHook.status === "active" || outputWebhook.status === "active" ? "passed" : "waiting",
+        detail:
+          deploymentHook.status === "active"
+            ? "已配置部署 Hook，合并后可以触发客户网站发布。"
+            : outputWebhook.status === "active"
+              ? "已配置输出 Webhook，可以把结果推回客户系统。"
+              : "还没配置部署 Hook；本地测试可以先看 PR 和运行记录。",
+      },
+    ];
     const lastSignalLabel = ingestion.lastSignalAt ? formatDate(ingestion.lastSignalAt) : feedbackCount ? "已收到信号" : "等待首个信号";
     $("#projectAccessMeta").textContent = sdkActive ? "API Key 已生成" : "等待生成";
     $("#projectAccessPanel").innerHTML = `
@@ -1934,6 +1989,26 @@
           <button class="row-action secondary" type="button" data-github-load-repos>重新同步仓库</button>
         </span>
       </div>
+      <div class="access-checklist">
+        <div class="access-checklist-heading">
+          <strong>接入自检</strong>
+          <small>每个客户网站都独立检查，哪里没接好会直接显示。</small>
+        </div>
+        ${accessChecks
+          .map(
+            (check) => `
+              <div class="access-check-row">
+                <span class="check-status ${escapeHtml(check.status)}">${checkStatusLabel(check.status)}</span>
+                <div>
+                  <strong>${escapeHtml(check.label)}</strong>
+                  <small>${escapeHtml(check.detail)}</small>
+                </div>
+                ${check.action ? `<span class="table-actions">${check.action}</span>` : ""}
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
       <div class="project-access-grid">
         <div class="access-stat">
           <small>API Key</small>
@@ -1949,7 +2024,7 @@
         </div>
         <div class="access-stat">
           <small>通过 / 拦截</small>
-          <strong>${Number(ingestion.acceptedSignals || feedbackCount)} / ${Number(ingestion.rejectedSignals || 0)}</strong>
+          <strong>${acceptedSignals} / ${rejectedSignals}</strong>
         </div>
         <div class="access-stat">
           <small>租户</small>
@@ -1974,8 +2049,8 @@
             ? origins.map((origin) => `<span class="tag">${escapeHtml(origin)}</span>`).join("")
             : `<span class="tag">未配置允许域名</span>`
         }
-        ${ingestion.lastAcceptedOrigin ? `<span class="tag risk-low">最近来源：${escapeHtml(ingestion.lastAcceptedOrigin)}</span>` : ""}
-        ${ingestion.lastRejectedReason ? `<span class="tag risk-high">最近拦截：${escapeHtml(ingestion.lastRejectedReason)}</span>` : ""}
+        ${lastAcceptedOrigin ? `<span class="tag risk-low">最近来源：${escapeHtml(lastAcceptedOrigin)}</span>` : ""}
+        ${lastRejectedReason ? `<span class="tag risk-high">最近拦截：${escapeHtml(lastRejectedReason)}</span>` : ""}
       </div>
       <div class="webhook-config">
         <div>
@@ -3405,6 +3480,22 @@
     render();
   }
 
+  async function addAllowedOrigin(origin) {
+    const project = activeProject();
+    if (!project.id || !origin) return;
+    try {
+      const result = await apiRequest(`/projects/${encodeURIComponent(project.id)}/allowed-origins`, {
+        method: "POST",
+        body: JSON.stringify({ origin }),
+      });
+      state = { ...state, ...result.state, selectedProjectId: project.id, apiConnected: true };
+      showToast(`已放行来源：${result.origin}`);
+    } catch (error) {
+      showToast(error.data?.error || "放行来源失败");
+    }
+    render();
+  }
+
   function markEvolutionRunning(projectId, detail = "正在启动高级自动模式") {
     state.evolutionProgress = {
       projectId,
@@ -4467,6 +4558,11 @@
       const goViewButton = event.target.closest("[data-go-view]");
       if (goViewButton) {
         switchView(goViewButton.dataset.goView);
+        return;
+      }
+      const addOriginButton = event.target.closest("[data-add-allowed-origin]");
+      if (addOriginButton) {
+        addAllowedOrigin(addOriginButton.dataset.addAllowedOrigin);
         return;
       }
       const copyButton = event.target.closest("[data-copy-project-id]");

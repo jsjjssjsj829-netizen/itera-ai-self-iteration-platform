@@ -1143,6 +1143,15 @@ function rotateProjectSdkKey(db, projectId) {
   return project;
 }
 
+function addProjectAllowedOrigin(project, value) {
+  const origin = originFromUrl(value);
+  if (!origin || origin === "null") throw Object.assign(new Error("Valid website origin is required"), { status: 400 });
+  const existing = Array.isArray(project.allowedOrigins) ? project.allowedOrigins : [];
+  project.allowedOrigins = [...new Set([...existing, origin].filter(Boolean))];
+  project.updatedAt = nowIso();
+  return origin;
+}
+
 function ingestSignal(db, body) {
   ensureProject(db, body);
   const classification = classifySignal(body);
@@ -8911,6 +8920,25 @@ async function handleApi(req, res, url) {
       const project = rotateProjectSdkKey(db, rotateSdkKeyMatch[1]);
       await writeDb(db);
       json(res, 200, { project, state: publicState(db, project.id, actor) });
+    } catch (error) {
+      respondWithError(res, error);
+    }
+    return;
+  }
+
+  const allowedOriginMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/allowed-origins$/);
+  if (req.method === "POST" && allowedOriginMatch) {
+    const body = await parseBody(req);
+    try {
+      const project = assertProjectAccess(db, actor, allowedOriginMatch[1]);
+      const origin = addProjectAllowedOrigin(project, body.origin || body.url || project.ingestion?.lastRejectedOrigin || project.ingestion?.lastAcceptedOrigin || project.url);
+      audit(db, req, "project.allowed_origin.add", `project:${project.id}`, {
+        projectId: project.id,
+        origin,
+      });
+      addLog(db, `接入自检已放行来源：${project.name} · ${origin}`);
+      await writeDb(db);
+      json(res, 200, { project, origin, state: publicState(db, project.id, actor) });
     } catch (error) {
       respondWithError(res, error);
     }
