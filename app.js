@@ -1897,12 +1897,20 @@
     const deploymentRuns = projectDeploymentRuns().slice(0, 3);
     const sdkActive = projectSdkKey(project) && project.sdkStatus !== "disabled";
     const repos = projectRepositories();
+    const connectedRepo = repos[0] || null;
     const authorizedRepos = projectAuthorizedGithubRepositories();
-    const githubHint = repos.length
-      ? `已连接 ${repos[0].owner}/${repos[0].name}，可以生成真实 PR。`
+    const githubHint = connectedRepo
+      ? `已连接 ${connectedRepo.owner}/${connectedRepo.name}，可以生成真实 PR。下一步去批准要进化的问题。`
       : authorizedRepos.length
-        ? `已发现 ${authorizedRepos.length} 个授权仓库，请在下方点击“连接”。`
+        ? `已发现 ${authorizedRepos.length} 个授权仓库，点击“连接这个仓库”即可完成绑定。`
         : "先点击“刷新我的 GitHub 仓库”，找到 itera-test-site 后再连接。";
+    const githubStatusLabel = connectedRepo ? "代码仓库已连接" : authorizedRepos.length ? "待连接仓库" : "等待同步仓库";
+    const githubStatusClass = connectedRepo ? "passed" : authorizedRepos.length ? "warning" : "missing";
+    const githubPrimaryAction = connectedRepo
+      ? `<button class="row-action" type="button" data-go-view="iterations">下一步：去批准进化</button>`
+      : authorizedRepos.length
+        ? `<button class="row-action" type="button" data-github-connect-index="0">连接这个仓库</button>`
+        : `<button class="row-action" type="button" data-github-load-repos>刷新我的 GitHub 仓库</button>`;
     const lastSignalLabel = ingestion.lastSignalAt ? formatDate(ingestion.lastSignalAt) : feedbackCount ? "已收到信号" : "等待首个信号";
     $("#projectAccessMeta").textContent = sdkActive ? "API Key 已生成" : "等待生成";
     $("#projectAccessPanel").innerHTML = `
@@ -1920,8 +1928,10 @@
           <small>${escapeHtml(githubHint)}</small>
         </div>
         <span class="table-actions">
+          <span class="check-status ${githubStatusClass}">${escapeHtml(githubStatusLabel)}</span>
+          ${githubPrimaryAction}
           <button class="row-action secondary" type="button" data-github-refresh>刷新 GitHub 授权状态</button>
-          <button class="row-action" type="button" data-github-load-repos>刷新我的 GitHub 仓库</button>
+          <button class="row-action secondary" type="button" data-github-load-repos>重新同步仓库</button>
         </span>
       </div>
       <div class="project-access-grid">
@@ -4447,6 +4457,16 @@
       const loadReposButton = event.target.closest("[data-github-load-repos]");
       if (loadReposButton) {
         loadGithubRepositories();
+        return;
+      }
+      const connectButton = event.target.closest("[data-github-connect-index]");
+      if (connectButton) {
+        connectGithubRepository(connectButton.dataset.githubConnectIndex);
+        return;
+      }
+      const goViewButton = event.target.closest("[data-go-view]");
+      if (goViewButton) {
+        switchView(goViewButton.dataset.goView);
         return;
       }
       const copyButton = event.target.closest("[data-copy-project-id]");
