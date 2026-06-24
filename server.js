@@ -5244,18 +5244,18 @@ function githubIntegrationStatus(db = null, projectId = "") {
     canOpenRealPr: tokenConfigured || Boolean(appInstalled && repositoryReady),
     canListRepositories: tokenConfigured || appInstalled || Boolean(projectInstallation?.repositories?.length) || Boolean(tenantInstallation?.repositories?.length),
     message: tokenConfigured
-      ? "GitHub token is configured. Real branches, commits, and PRs can be created."
+      ? "GitHub Token 已接入，可以创建真实分支、提交和 PR。"
       : appConfigured
         ? effectiveInstallationId
           ? repositoryReady
-            ? "GitHub App is installed and a repository is connected for this project. Real repository-scoped PRs can be created."
+            ? "当前项目已绑定 GitHub 仓库，可以生成真实 PR。"
             : reusableInstallationReady
-              ? "GitHub App is installed for this account. Select an authorized repository for this project."
-            : "GitHub App is installed. Sync or select an authorized repository before opening real PRs."
-          : "GitHub App is configured. Install it for this project to bind authorized repositories."
+              ? "GitHub App 已安装，但当前项目还没选择仓库。请在“接入网站”里刷新仓库并绑定一个授权仓库。"
+              : "GitHub App 已安装，但当前项目还没绑定仓库。请先同步或选择一个授权仓库。"
+          : "GitHub App 已配置，但当前项目还没有完成仓库授权。请点击安装/重新授权 GitHub App，并选择客户网站仓库。"
         : projectInstallation
-          ? "GitHub App installation is recorded. Configure GitHub App credentials to sync live repositories and open real PRs."
-          : "GitHub is running in mock mode. Configure GITHUB_TOKEN or GitHub App env vars for real PRs.",
+          ? "已记录 GitHub App 安装信息，但还缺 GitHub App 凭证配置，暂时不能同步真实仓库。"
+          : "GitHub 仍是演示模式。配置 GitHub Token 或 GitHub App 后，才能创建真实 PR。",
   };
 }
 
