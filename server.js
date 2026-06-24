@@ -5270,7 +5270,6 @@ async function githubInstallationToken(installationId, repositories = []) {
     permissions: {
       contents: "write",
       pull_requests: "write",
-      checks: "read",
       metadata: "read",
     },
   };
