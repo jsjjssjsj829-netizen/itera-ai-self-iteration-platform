@@ -4930,6 +4930,17 @@ function githubInstallationForProject(db, projectId) {
     .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))[0];
 }
 
+function githubInstallationForTenant(db, tenantId) {
+  const projectIds = new Set(
+    db.projects
+      .filter((project) => String(project.tenantId || DEFAULT_TENANT_ID) === String(tenantId || DEFAULT_TENANT_ID))
+      .map((project) => project.id),
+  );
+  return db.githubInstallations
+    .filter((installation) => projectIds.has(installation.projectId) && installation.status !== "deleted")
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))[0];
+}
+
 function githubInstallUrlForProject(projectId) {
   const config = githubAppConfig();
   if (!config.appSlug) return "";
@@ -5196,13 +5207,18 @@ function githubIntegrationStatus(db = null, projectId = "") {
   const appConfig = githubAppConfig();
   const appConfigured = appConfig.configured;
   const projectInstallation = db && projectId ? githubInstallationForProject(db, projectId) : null;
-  const effectiveInstallationId = projectInstallation?.installationId || appConfig.installationId;
+  const project = db && projectId ? db.projects.find((item) => item.id === projectId) : null;
+  const tenantInstallation =
+    db && projectId && !projectInstallation ? githubInstallationForTenant(db, project?.tenantId || DEFAULT_TENANT_ID) : null;
   const projectRepositories =
     db && projectId
       ? db.repositories.filter((repo) => repo.projectId === projectId && repo.provider === "GitHub" && repo.status !== "mock-connected")
       : [];
+  const repositoryInstallationId = projectRepositories.find((repo) => repo.githubInstallationId)?.githubInstallationId;
+  const effectiveInstallationId = projectInstallation?.installationId || repositoryInstallationId || tenantInstallation?.installationId || appConfig.installationId;
   const repositoryReady = Boolean(projectRepositories.length || projectInstallation?.repositories?.length);
   const appInstalled = Boolean(appConfigured && effectiveInstallationId);
+  const reusableInstallationReady = Boolean(tenantInstallation?.repositories?.length && !repositoryReady);
   return {
     mode: tokenConfigured ? "token" : appConfigured ? "github_app" : "mock",
     tokenConfigured,
@@ -5226,13 +5242,15 @@ function githubIntegrationStatus(db = null, projectId = "") {
     requiredScopes: ["contents:write", "pull_requests:write", "metadata:read"],
     repositoryReady,
     canOpenRealPr: tokenConfigured || Boolean(appInstalled && repositoryReady),
-    canListRepositories: tokenConfigured || appInstalled || Boolean(projectInstallation?.repositories?.length),
+    canListRepositories: tokenConfigured || appInstalled || Boolean(projectInstallation?.repositories?.length) || Boolean(tenantInstallation?.repositories?.length),
     message: tokenConfigured
       ? "GitHub token is configured. Real branches, commits, and PRs can be created."
       : appConfigured
         ? effectiveInstallationId
           ? repositoryReady
             ? "GitHub App is installed and a repository is connected for this project. Real repository-scoped PRs can be created."
+            : reusableInstallationReady
+              ? "GitHub App is installed for this account. Select an authorized repository for this project."
             : "GitHub App is installed. Sync or select an authorized repository before opening real PRs."
           : "GitHub App is configured. Install it for this project to bind authorized repositories."
         : projectInstallation
@@ -8592,6 +8610,8 @@ async function handleApi(req, res, url) {
       const projectId = resolveProjectForActor(db, actor, url.searchParams.get("projectId")).id;
       const status = githubIntegrationStatus(db, projectId);
       const projectInstallation = githubInstallationForProject(db, projectId);
+      const project = db.projects.find((item) => item.id === projectId);
+      const tenantInstallation = !projectInstallation ? githubInstallationForTenant(db, project?.tenantId || actor.tenantId) : null;
       if (status.tokenConfigured) {
         const repos = await githubApiRequest("GET", "https://api.github.com/user/repos?per_page=50&sort=updated");
         json(res, 200, {
@@ -8613,7 +8633,11 @@ async function handleApi(req, res, url) {
         json(res, 200, { github: status, repositories: projectInstallation.repositories });
         return;
       }
-      const installationId = projectInstallation?.installationId || githubAppConfig().installationId;
+      const connectedRepoInstallationId = db.repositories.find(
+        (repo) => repo.projectId === projectId && repo.provider === "GitHub" && repo.status !== "mock-connected" && repo.githubInstallationId,
+      )?.githubInstallationId;
+      const installationId =
+        projectInstallation?.installationId || connectedRepoInstallationId || tenantInstallation?.installationId || githubAppConfig().installationId;
       if (status.appConfigured && installationId) {
         const token = await githubInstallationToken(installationId);
         const data = await githubApiRequest("GET", "https://api.github.com/installation/repositories?per_page=50", null, {
