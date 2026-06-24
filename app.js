@@ -1896,6 +1896,13 @@
     const webhookDeliveries = projectWebhookDeliveries().slice(0, 3);
     const deploymentRuns = projectDeploymentRuns().slice(0, 3);
     const sdkActive = projectSdkKey(project) && project.sdkStatus !== "disabled";
+    const repos = projectRepositories();
+    const authorizedRepos = projectAuthorizedGithubRepositories();
+    const githubHint = repos.length
+      ? `已连接 ${repos[0].owner}/${repos[0].name}，可以生成真实 PR。`
+      : authorizedRepos.length
+        ? `已发现 ${authorizedRepos.length} 个授权仓库，请在下方点击“连接”。`
+        : "先点击“刷新我的 GitHub 仓库”，找到 itera-test-site 后再连接。";
     const lastSignalLabel = ingestion.lastSignalAt ? formatDate(ingestion.lastSignalAt) : feedbackCount ? "已收到信号" : "等待首个信号";
     $("#projectAccessMeta").textContent = sdkActive ? "API Key 已生成" : "等待生成";
     $("#projectAccessPanel").innerHTML = `
@@ -1906,6 +1913,16 @@
           <span>${escapeHtml(project.url || "未填写网址")}</span>
         </div>
         <span class="check-status ${sdkActive ? "passed" : "missing"}">${sdkActive ? "Key 可用" : "待生成"}</span>
+      </div>
+      <div class="connector-item github-status-card">
+        <div>
+          <strong>连接客户网站代码</strong>
+          <small>${escapeHtml(githubHint)}</small>
+        </div>
+        <span class="table-actions">
+          <button class="row-action secondary" type="button" data-github-refresh>刷新 GitHub 授权状态</button>
+          <button class="row-action" type="button" data-github-load-repos>刷新我的 GitHub 仓库</button>
+        </span>
       </div>
       <div class="project-access-grid">
         <div class="access-stat">
@@ -4422,6 +4439,16 @@
       validateGithubRepository(owner, name);
     });
     $("#projectAccessPanel").addEventListener("click", (event) => {
+      const refreshButton = event.target.closest("[data-github-refresh]");
+      if (refreshButton) {
+        refreshGithubStatus();
+        return;
+      }
+      const loadReposButton = event.target.closest("[data-github-load-repos]");
+      if (loadReposButton) {
+        loadGithubRepositories();
+        return;
+      }
       const copyButton = event.target.closest("[data-copy-project-id]");
       if (copyButton) {
         copyProjectId(copyButton.dataset.copyProjectId);
